@@ -5,7 +5,6 @@ from typing import Tuple, List
 import pickle
 from dotenv import load_dotenv
 import os
-
 from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -57,19 +56,6 @@ open_ai_api_key = os.getenv("OPENAI_API_KEY")
 def docs_to_index(docs, openai_api_key):
     index = FAISS.from_documents(docs, OpenAIEmbeddings(openai_api_key=open_ai_api_key))
     return index
-
-
-#def get_index_for_pdf(pdf_files, pdf_names, openai_api_key):
-#    documents = []
-#    for pdf_file, pdf_name in zip(pdf_files, pdf_names):
-#        text, filename = parse_pdf(BytesIO(pdf_file), pdf_name)
-#        documents = documents + text_to_docs(text, filename)
-#    index = docs_to_index(documents, openai_api_key)
-#    return index
-
-
-
-
 
 def get_index_for_documents(pdf_files, pdf_names, raw_texts, openai_api_key):
     documents = []
