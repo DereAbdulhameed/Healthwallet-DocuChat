@@ -1,48 +1,47 @@
-# Import necessary libraries
-#import databutton as db
 import streamlit as st
 import openai
 from openai import OpenAI
-from brain import get_index_for_pdf
+from brain import get_index_for_documents
 from langchain.chains import RetrievalQA
 from langchain_community.chat_models import ChatOpenAI
-#from langchain.chat_models import ChatOpenAI
+from langchain_community.embeddings import OpenAIEmbeddings
+from langchain_community.vectorstores import FAISS
 from dotenv import load_dotenv
 import os
-
-
 
 # Set the title for the Streamlit app
 st.title("DocuChat")
 
-
-# Set up the client 
+# Set up the OpenAI client
 client = OpenAI()
-# Set up[ the openAI key
-#load_dotenv()  # load variables from .env
-#OpenAI.api_key = os.env("OPENAI_API_KEY")
-load_dotenv()  # load variables from .env
+load_dotenv()  # Load variables from .env
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-
-#@st.cache_data
+# Function to create vector database from different file types
 @st.cache_resource
-def create_vectordb(files, filenames):
+def create_vectordb(files, filenames, raw_texts):
     # Show a spinner while creating the vectordb
-    with st.spinner("Vector database"):
-        vectordb = get_index_for_pdf(
-            [file.getvalue() for file in files], filenames, openai.api_key
+    with st.spinner("Creating vector database..."):
+        vectordb = get_index_for_documents(
+            [file.getvalue() for file in files if file.type == "application/pdf"],
+            filenames,
+            [raw_text for raw_text in raw_texts.splitlines() if raw_text.strip()],
+            openai.api_key
         )
     return vectordb
 
 
-# Upload PDF files using Streamlit's file uploader
-pdf_files = st.file_uploader("Upload your document", type="pdf", accept_multiple_files=True, label_visibility="hidden")
 
-# If PDF files are uploaded, create the vectordb and store it in the session state
-if pdf_files:
-    pdf_file_names = [file.name for file in pdf_files]
-    st.session_state["vectordb"] = create_vectordb(pdf_files, pdf_file_names)
+# Upload files using Streamlit's file uploader
+uploaded_files = st.file_uploader("Upload your documents (PDF or TXT)", type=["pdf", "txt"], accept_multiple_files=True, label_visibility="hidden")
+
+# Text area for raw text input
+raw_text = st.text_area("Or enter your raw text here:", height=150)
+
+# If files are uploaded or raw text is provided, create the vectordb and store it in the session state
+if uploaded_files or raw_text:
+    file_names = [file.name for file in uploaded_files] if uploaded_files else []
+    st.session_state["vectordb"] = create_vectordb(uploaded_files, file_names, raw_text)
 
 # Define the template for the chatbot prompt
 prompt_template = """
@@ -50,18 +49,18 @@ prompt_template = """
 
     Keep your answer short and to the point.
     
-    The evidence are the context of the pdf extract with metadata. 
+    The evidence is the context of the document extract with metadata. 
     
-    Carefully focus on the metadata specially 'filename' and 'page' whenever answering.
+    Carefully focus on the metadata, especially 'filename' and 'page' whenever answering.
     
-    Make sure to add filename and page number at the end of sentence you are citing to.
+    Make sure to add filename and page number at the end of the sentence you are citing to.
 
-    Also be able to give summary based on the pdf extract given to you, but do not hallucinate
+    Also be able to use your general knowledge to give an adequate summary based on the document extract given to you, but do not hallucinate.
         
     Reply "Not applicable" if text is irrelevant.
      
-    The PDF content is:
-    {pdf_extract}
+    The document content is:
+    {doc_extract}
 """
 
 # Get the current prompt from the session state or set a default value
@@ -81,18 +80,17 @@ if question:
     vectordb = st.session_state.get("vectordb", None)
     if not vectordb:
         with st.chat_message("assistant"):
-            st.write("You need to provide a PDF")
+            st.write("You need to provide a PDF, TXT file, or raw text.")
             st.stop()
 
     # Search the vectordb for similar content to the user's question
     search_results = vectordb.similarity_search(question, k=3)
-    # search_results
-    pdf_extract = "/n ".join([result.page_content for result in search_results])
+    doc_extract = "\n".join([result.page_content for result in search_results])
 
-    # Update the prompt with the pdf extract
+    # Update the prompt with the document extract
     prompt[0] = {
         "role": "system",
-        "content": prompt_template.format(pdf_extract=pdf_extract),
+        "content": prompt_template.format(doc_extract=doc_extract),
     }
 
     # Add the user's question to the prompt and display it
@@ -110,8 +108,6 @@ if question:
     for chunk in client.chat.completions.create(
         model="gpt-3.5-turbo", messages=prompt, stream=True
     ):
-        #text = chunk.choices[0].get("delta", {}).get("content")
-        #text = chunk.choices[0].delta.get("content")
         text = chunk.choices[0].delta.content
         if text is not None:
             response.append(text)
@@ -119,10 +115,6 @@ if question:
             botmsg.write(result)
 
     # Add the assistant's response to the prompt
-    prompt.append({"role": "assistant", "content": result})
-
-    # Store the updated prompt in the session state
-    st.session_state["prompt"] = prompt
     prompt.append({"role": "assistant", "content": result})
 
     # Store the updated prompt in the session state
