@@ -4,3 +4,7 @@ langchain
 pypdf
 faiss-cpu
 databutton
+langchain-community
+python-dotenv
+raga-llm-hub
+
