@@ -10,6 +10,7 @@ from langchain.docstore.document import Document
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores.faiss import FAISS
+from langchain.docstore.document import Document
 from pypdf import PdfReader
 import faiss
 
@@ -58,10 +59,35 @@ def docs_to_index(docs, openai_api_key):
     return index
 
 
-def get_index_for_pdf(pdf_files, pdf_names, openai_api_key):
+#def get_index_for_pdf(pdf_files, pdf_names, openai_api_key):
+#    documents = []
+#    for pdf_file, pdf_name in zip(pdf_files, pdf_names):
+#        text, filename = parse_pdf(BytesIO(pdf_file), pdf_name)
+#        documents = documents + text_to_docs(text, filename)
+#    index = docs_to_index(documents, openai_api_key)
+#    return index
+
+
+
+
+
+def get_index_for_documents(pdf_files, pdf_names, raw_texts, openai_api_key):
     documents = []
+    
+    # Process PDF files
     for pdf_file, pdf_name in zip(pdf_files, pdf_names):
         text, filename = parse_pdf(BytesIO(pdf_file), pdf_name)
-        documents = documents + text_to_docs(text, filename)
+        documents += text_to_docs(text, filename)
+
+    # Process raw text inputs
+    for raw_text in raw_texts:
+        # Create a Document object for raw text with the required structure
+        doc = Document(
+            page_content=raw_text,
+            metadata={"filename": "raw_input", "page": 1}  # Metadata can be adjusted
+        )
+        documents.append(doc)
+
     index = docs_to_index(documents, openai_api_key)
     return index
+
