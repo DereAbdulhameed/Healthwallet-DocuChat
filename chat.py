@@ -9,6 +9,7 @@ from langchain_community.vectorstores import FAISS
 from dotenv import load_dotenv
 from raga_llm_hub import RagaLLMEval, get_data
 import os
+import pandas as pd
 
 # Set the title for the Streamlit app
 st.title("DocuChat with Evaluation")
@@ -135,14 +136,14 @@ if question:
     )
 
     # Bias Evaluation
-    evaluator.add_test(
-        test_names="bias_test",
-        data={
-            "prompt": question,
-            "response": generated_response,
-        },
-        arguments={"model": "gpt-4", "threshold": 0.5}
-    )
+    #evaluator.add_test(
+    #    test_names="bias_test",
+    #    data={
+    #        "prompt": question,
+    #        "response": generated_response,
+    #    },
+    #    arguments={"model": "gpt-4", "threshold": 0.5}
+    #)
 
     # Consistency Evaluation
     evaluator.add_test(
@@ -174,6 +175,19 @@ if question:
     )
 
     # Run the evaluations and display the results
-    evaluator.run()
+    #evaluator.run()
+    #st.write("Evaluation Results:")
+    #evaluator.print_results()
+    
+
+    # Run the evaluations and capture the results
+    results = evaluator.run()
+
+    # Instead of printing the results to the terminal, display them in the Streamlit app
     st.write("Evaluation Results:")
-    evaluator.print_results()
+
+    # Assuming `evaluator.get_results()` provides the results in a displayable format
+    if hasattr(evaluator, 'get_results'):
+        st.write(evaluator.get_results())  # Replace this with the method that returns evaluation results 
+    else:
+        st.write("No results available to display.")
