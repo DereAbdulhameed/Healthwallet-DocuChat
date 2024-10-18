@@ -7,4 +7,5 @@ databutton
 langchain-community
 python-dotenv
 raga-llm-hub
+fhirpath
 
