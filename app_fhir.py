@@ -6,14 +6,10 @@ from langchain.chains import RetrievalQA
 from langchain_community.chat_models import ChatOpenAI
 from langchain_community.embeddings import OpenAIEmbeddings
 from langchain_community.vectorstores import FAISS
-from pydantic import BaseModel, ConfigDict
 from dotenv import load_dotenv
 import os
 import json
-from fhir.resources import IPS
-#from fhir.resources.ips import IPS
-#from fhirpathpy import evaluate
-from fhirpath import evaluate
+from fhirpathpy import evaluate  # Using fhirpathpy for FHIRPath evaluations
 
 # Set the title for the Streamlit app
 st.title("DocuChat")
@@ -27,9 +23,15 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 def load_fhir_document(file):
     return json.loads(file.getvalue().decode("utf-8"))
 
-# Function to evaluate FHIRPath queries
+# Function to evaluate FHIRPath queries using fhirpathpy
 def evaluate_fhirpath(data, fhirpath_expression):
-    return evaluate(data, fhirpath_expression)
+    try:
+        # Evaluating FHIRPath expression using fhirpathpy
+        result = evaluate(data, fhirpath_expression, [])
+        return result
+    except Exception as e:
+        st.error(f"Error in evaluating FHIRPath expression: {str(e)}")
+        return None
 
 # Function to generate FHIRPath queries using GPT
 def generate_fhirpath_query(question):
@@ -120,7 +122,8 @@ if question:
             fhir_data = load_fhir_document(uploaded_file)
             fhirpath_query = generate_fhirpath_query(question)
             fhirpath_result = evaluate_fhirpath(fhir_data, fhirpath_query)
-            doc_extract = convert_to_natural_language(fhirpath_result)
+            if fhirpath_result:
+                doc_extract = convert_to_natural_language(fhirpath_result)
             break
 
     # If handling PDF or TXT files, search the vectordb for similar content
