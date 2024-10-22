@@ -35,7 +35,7 @@ def evaluate_fhirpath(data, fhirpath_expression):
 
 # Function to generate FHIRPath queries using GPT
 def generate_fhirpath_query(question):
-    response = openai.Completion.create(
+    response = client.chat.completions.create(
         model="gpt-4",
         prompt=f"Convert the following question into a FHIRPath query: {question}",
         max_tokens=50
@@ -44,7 +44,7 @@ def generate_fhirpath_query(question):
 
 # Function to convert FHIRPath results to natural language using GPT
 def convert_to_natural_language(fhir_result):
-    response = openai.Completion.create(
+    response = client.chat.completions.create(
         model="gpt-4",
         prompt=f"Convert the following data into natural language: {fhir_result}",
         max_tokens=150
