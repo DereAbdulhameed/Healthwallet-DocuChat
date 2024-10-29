@@ -108,6 +108,8 @@ prompt_template = """
     Also be able to use your general knowledge to give an adequate summary based on the document extract given to you, but do not hallucinate.
         
     Reply "Not applicable" if text is irrelevant.
+
+    In addition, use your common knowledge to answer some other questions not explicitly stated in the document.
      
     The document content is:
     {doc_extract}
@@ -236,4 +238,3 @@ st.write("Here are some commonly asked questions about handling emergency situat
 for question, answer in faqs.items():
     with st.expander(question):
         st.write(answer)
-
