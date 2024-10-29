@@ -186,3 +186,54 @@ if question:
     else:
         with st.chat_message("assistant"):
             st.write("No relevant data found in the document.")
+
+
+# Emergency FAQs
+faqs = {
+    "What should I do if someone is choking?": (
+        "1. Encourage them to cough if they can.\n"
+        "2. If they can’t breathe, give 5 back blows between the shoulder blades.\n"
+        "3. If unsuccessful, follow with 5 abdominal thrusts (Heimlich maneuver).\n"
+        "4. Call emergency services if the person continues choking."
+    ),
+    "How do I perform CPR?": (
+        "1. Ensure the person is lying on their back on a firm surface.\n"
+        "2. Place the heel of your hand on the center of the chest and interlock your fingers.\n"
+        "3. Push down hard and fast (about 100-120 compressions per minute) until help arrives.\n"
+        "4. If trained, alternate 30 compressions with 2 rescue breaths."
+    ),
+    "What should I do in case of a severe allergic reaction?": (
+        "1. If available, administer an epinephrine auto-injector (EpiPen) immediately.\n"
+        "2. Call emergency services right away.\n"
+        "3. Keep the person calm and lying down if possible, and monitor their breathing.\n"
+        "4. If they stop breathing, start CPR if trained."
+    ),
+    "How do I treat a burn?": (
+        "1. Cool the burn under running water for at least 10 minutes.\n"
+        "2. Cover the burn with a sterile, non-fluffy dressing or cloth.\n"
+        "3. Avoid applying any creams or oily substances.\n"
+        "4. Seek medical help if the burn is large, deep, or on sensitive areas (face, hands, feet, etc.)."
+    ),
+    "What should I do if someone is having a heart attack?": (
+        "1. Call emergency services immediately.\n"
+        "2. Help the person to sit down and stay calm.\n"
+        "3. If they are not allergic, give them aspirin (325 mg) to chew slowly.\n"
+        "4. Be prepared to start CPR if they lose consciousness."
+    ),
+    "How can I help someone who is having a seizure?": (
+        "1. Stay calm and time the seizure.\n"
+        "2. Clear the area of any sharp or harmful objects.\n"
+        "3. Place something soft under their head.\n"
+        "4. Do not restrain them or put anything in their mouth.\n"
+        "5. Call emergency services if the seizure lasts more than 5 minutes."
+    )
+}
+
+# Display FAQs in Streamlit
+st.header("Emergency FAQs")
+st.write("Here are some commonly asked questions about handling emergency situations:")
+
+for question, answer in faqs.items():
+    with st.expander(question):
+        st.write(answer)
+
