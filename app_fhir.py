@@ -19,6 +19,34 @@ client = OpenAI()
 load_dotenv()  # Load variables from .env
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
+# Few-shot examples for generating FHIRPath queries
+few_shot_examples = """
+Examples of natural language questions and their corresponding FHIRPath queries:
+1. Question: "How old is the patient?"
+   FHIRPath Query: Patient.birthDate
+
+2. Question: "What is the patient's drug allergy?"
+   FHIRPath Query: AllergyIntolerance.where(category = 'medication').code.text
+
+3. Question: "What medications is the patient currently taking?"
+   FHIRPath Query: MedicationRequest.where(status = 'active').medicationCodeableConcept.text
+
+4. Question: "What is the patient's name?"
+   FHIRPath Query: Patient.name.given & " " & Patient.name.family
+
+Please convert the following question into a FHIRPath query.
+"""
+
+# Function to generate FHIRPath queries using GPT with few-shot prompting
+def generate_fhirpath_query(question):
+    response = client.chat.completions.create(
+        model="gpt-4",
+        prompt=f"{few_shot_examples}\nQuestion: {question}\nFHIRPath Query:",
+        max_tokens=50,
+        temperature=0.2  # Lower temperature for more deterministic output
+    )
+    return response.choices[0].text.strip()
+
 # Function to load FHIR/IPS document
 def load_fhir_document(file):
     return json.loads(file.getvalue().decode("utf-8"))
@@ -32,15 +60,6 @@ def evaluate_fhirpath(data, fhirpath_expression):
     except Exception as e:
         st.error(f"Error in evaluating FHIRPath expression: {str(e)}")
         return None
-
-# Function to generate FHIRPath queries using GPT
-def generate_fhirpath_query(question):
-    response = client.chat.completions.create(
-        model="gpt-4",
-        prompt=f"Convert the following question into a FHIRPath query: {question}",
-        max_tokens=50
-    )
-    return response.choices[0].text.strip()
 
 # Function to convert FHIRPath results to natural language using GPT
 def convert_to_natural_language(fhir_result):
