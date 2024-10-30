@@ -94,6 +94,13 @@ if uploaded_files or raw_text:
 prompt_template = """
     You are a helpful Assistant who answers users' questions based on multiple contexts given to you.
 
+    The evidence is the context of the document extract with metadata. 
+    
+    Carefully focus on the metadata, especially 'filename' and 'page' whenever answering.
+    
+    Make sure to add filename and page number at the end of the sentence you are citing to.
+
+
     Focus on the context of the document extract with metadata.
     Add filename and page number if citing directly from a document.
     Use general knowledge if document-based information is irrelevant.
@@ -160,6 +167,31 @@ faqs = {
         "2. Place the heel of your hand on the center of the chest and interlock your fingers.\n"
         "3. Push down hard and fast (about 100-120 compressions per minute) until help arrives.\n"
         "4. If trained, alternate 30 compressions with 2 rescue breaths."
+    ),
+    "What should I do in case of a severe allergic reaction?": (
+        "1. If available, administer an epinephrine auto-injector (EpiPen) immediately.\n"
+        "2. Call emergency services right away.\n"
+        "3. Keep the person calm and lying down if possible, and monitor their breathing.\n"
+        "4. If they stop breathing, start CPR if trained."
+    ),
+    "How do I treat a burn?": (
+        "1. Cool the burn under running water for at least 10 minutes.\n"
+        "2. Cover the burn with a sterile, non-fluffy dressing or cloth.\n"
+        "3. Avoid applying any creams or oily substances.\n"
+        "4. Seek medical help if the burn is large, deep, or on sensitive areas (face, hands, feet, etc.)."
+    ),
+    "What should I do if someone is having a heart attack?": (
+        "1. Call emergency services immediately.\n"
+        "2. Help the person to sit down and stay calm.\n"
+        "3. If they are not allergic, give them aspirin (325 mg) to chew slowly.\n"
+        "4. Be prepared to start CPR if they lose consciousness."
+    ),
+    "How can I help someone who is having a seizure?": (
+        "1. Stay calm and time the seizure.\n"
+        "2. Clear the area of any sharp or harmful objects.\n"
+        "3. Place something soft under their head.\n"
+        "4. Do not restrain them or put anything in their mouth.\n"
+        "5. Call emergency services if the seizure lasts more than 5 minutes."
     )
 }
 
