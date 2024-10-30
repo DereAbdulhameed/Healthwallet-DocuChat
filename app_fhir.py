@@ -163,9 +163,10 @@ faqs = {
     )
 }
 
-# Display FAQs
-st.header("Emergency FAQs")
-st.write("Here are some commonly asked questions about handling emergency situations:")
+
+# Display FAQs in the sidebar
+st.sidebar.header("Emergency FAQs")
+st.sidebar.write("Here are some commonly asked questions about handling emergency situations:")
 for question, answer in faqs.items():
-    with st.expander(question):
+    with st.sidebar.expander(question):
         st.write(answer)
