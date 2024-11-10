@@ -41,11 +41,14 @@ Please convert the following question into a FHIRPath query.
 def generate_fhirpath_query(question):
     response = client.chat.completions.create(
         model="gpt-4",
-        prompt=f"{few_shot_examples}\nQuestion: {question}\nFHIRPath Query:",
+        messages=[
+            {"role": "system", "content": few_shot_examples},
+            {"role": "user", "content": f"Question: {question}\nFHIRPath Query:"}
+        ],
         max_tokens=50,
         temperature=0.2
     )
-    return response.choices[0].text.strip()
+    return response.choices[0].message.content
 
 # Function to query the FHIR server using FHIRPath
 def query_fhir_server(fhir_query):
@@ -71,10 +74,13 @@ def evaluate_fhirpath(data, fhirpath_expression):
 def convert_to_natural_language(fhir_result):
     response = client.chat.completions.create(
         model="gpt-4",
-        prompt=f"Convert the following data into natural language: {fhir_result}",
+        messages=[
+            {"role": "system", "content": "Convert the following data into natural language."},
+            {"role": "user", "content": f"{fhir_result}"}
+        ],
         max_tokens=150
     )
-    return response.choices[0].text.strip()
+    return response.choices[0].message['content'].strip()
 
 # Upload files using Streamlit's file uploader
 uploaded_files = st.file_uploader("Upload your documents (PDF, TXT, JSON/FHIR, IPS)", type=["pdf", "txt", "json"], accept_multiple_files=True)
@@ -134,13 +140,13 @@ if user_prompt:
         assistant_response = natural_language_response
     else:
         # Fallback to general GPT-4 response
-        prompt = [{"role": "system", "content": "You are a helpful assistant"}]
-        prompt.extend(st.session_state.chat_history)
+        messages = [{"role": "system", "content": "You are a helpful assistant"}]
+        messages.extend(st.session_state.chat_history)
         response = client.chat.completions.create(
             model="gpt-4",
-            messages=prompt
+            messages=messages
         )
-        assistant_response = response.choices[0].message.content
+        assistant_response = response.choices[0].message['content']
 
     # Add assistant's response to the chat history and display it
     st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
