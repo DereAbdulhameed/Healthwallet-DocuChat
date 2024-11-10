@@ -146,7 +146,7 @@ if user_prompt:
             model="gpt-4",
             messages=messages
         )
-        assistant_response = response.choices[0].message['content']
+        assistant_response = response.choices[0].message.content
 
     # Add assistant's response to the chat history and display it
     st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
