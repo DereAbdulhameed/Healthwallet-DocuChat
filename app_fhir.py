@@ -23,9 +23,9 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 # Title of the Streamlit page
-st.title("DocuChat with FHIR Query Support")
+st.title("DocuChat")
 
-# Few-shot examples for generating FHIRPath queries
+# Few-shot prompting
 few_shot_examples = """
 Examples of natural language questions and their corresponding FHIRPath queries:
 1. Question: "How old is the patient?"
@@ -33,6 +33,30 @@ Examples of natural language questions and their corresponding FHIRPath queries:
 
 2. Question: "What is the patient's drug allergy?"
    FHIRPath Query: AllergyIntolerance.where(category = 'medication').code.text
+
+3. Question: "What are the patient's current medications?"
+   FHIRPath Query: MedicationStatement.where(status = 'active').medicationCodeableConcept.text
+
+4. Question: "What is the patient's gender?"
+   FHIRPath Query: Patient.gender
+
+5. Question: "Does the patient have a history of smoking?"
+   FHIRPath Query: Observation.where(code.coding.display = 'Tobacco smoking status').valueCodeableConcept.text
+
+6. Question: "What is the patient's primary diagnosis?"
+   FHIRPath Query: Condition.where(clinicalStatus = 'active').code.coding.display
+
+7. Question: "What is the patient's contact phone number?"
+   FHIRPath Query: Patient.telecom.where(system = 'phone').value
+
+8. Question: "What are the patient's laboratory test results?"
+   FHIRPath Query: Observation.where(category.coding.code = 'laboratory').valueQuantity.value
+
+9. Question: "What is the patient's blood type?"
+   FHIRPath Query: Observation.where(code.coding.display = 'Blood group').valueCodeableConcept.text
+
+10. Question: "What is the patient's weight?"
+    FHIRPath Query: Observation.where(code.coding.display = 'Body Weight').valueQuantity.value
 
 Please convert the following question into a FHIRPath query.
 """
@@ -49,6 +73,7 @@ def generate_fhirpath_query(question):
         temperature=0.2
     )
     return response.choices[0].message.content
+
 
 # Function to query the FHIR server using FHIRPath
 def query_fhir_server(fhir_query):
