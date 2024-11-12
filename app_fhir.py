@@ -61,6 +61,21 @@ Examples of natural language questions and their corresponding FHIRPath queries:
 Please convert the following question into a FHIRPath query.
 """
 
+# Function to populate FAQs from document data
+def populate_emergency_faqs(data):
+    for question, fhirpath_expression in emergency_faqs.items():
+        try:
+            fhir_result = evaluate(data, fhirpath_expression, [])
+            if fhir_result:
+                natural_language_response = convert_to_natural_language(fhir_result)
+                emergency_faqs[question] = natural_language_response
+            else:
+                emergency_faqs[question] = "Not Found"
+        except Exception as e:
+            st.error(f"Error processing FAQ '{question}': {str(e)}")
+            emergency_faqs[question] = "Error in processing"
+            
+
 # Function to generate FHIRPath queries using GPT with few-shot prompting
 def generate_fhirpath_query(question):
     response = client.chat.completions.create(
@@ -195,19 +210,7 @@ emergency_faqs = {
     "Has the patient traveled recently?": "Observation.where(code.coding.display = 'Travel history').valueString"
 }
 
-# Function to populate FAQs from document data
-def populate_emergency_faqs(data):
-    for question, fhirpath_expression in emergency_faqs.items():
-        try:
-            fhir_result = evaluate(data, fhirpath_expression, [])
-            if fhir_result:
-                natural_language_response = convert_to_natural_language(fhir_result)
-                emergency_faqs[question] = natural_language_response
-            else:
-                emergency_faqs[question] = "Not Found"
-        except Exception as e:
-            st.error(f"Error processing FAQ '{question}': {str(e)}")
-            emergency_faqs[question] = "Error in processing"
+
 
 
 # Display updated Emergency FAQs in the sidebar
