@@ -138,7 +138,7 @@ prompt_template = """
     Add filename and page number if citing directly from a document.
     Use general knowledge if document-based information is irrelevant.
     
-    The document content is:
+    The document is:
     {doc_extract}
 """
 
