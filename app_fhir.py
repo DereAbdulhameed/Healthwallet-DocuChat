@@ -1,4 +1,4 @@
-import streamlit as st
+'''import streamlit as st
 import openai
 from openai import OpenAI
 from brain import get_index_for_documents
@@ -138,7 +138,7 @@ prompt_template = """
     Add filename and page number if citing directly from a document.
     Use general knowledge if document-based information is irrelevant.
     
-    The document is:
+    The document content is:
     {doc_extract}
 """
 
@@ -195,4 +195,143 @@ st.sidebar.header("Emergency FAQs (Patient Information)")
 st.sidebar.write("These are key questions a doctor would ask upon first contact.")
 for question, answer in emergency_faqs.items():
     with st.sidebar.expander(question):
-        st.write(answer if answer != "Not Found" else "Not Found")
+        st.write(answer if answer != "Not Found" else "Not Found")'''
+
+
+import streamlit as st
+import openai
+from openai import OpenAI
+from dotenv import load_dotenv
+import os
+import json
+from fhirpathpy import evaluate
+import requests
+
+# Load environment variables
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
+FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL")
+client = OpenAI()
+
+# Initialize chat session in Streamlit if not already present
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# Title of the Streamlit page
+st.title("DocuChat")
+
+# Emergency FAQs to answer upon document upload
+emergency_faqs = {
+    "What are the patient's vital signs?": "Observation.where(category.coding.code = 'vital-signs').valueQuantity.value",
+    "Does the patient have any known chronic medical conditions?": "Condition.where(clinicalStatus = 'active').code.coding.display",
+    "Is the patient allergic to any medications?": "AllergyIntolerance.where(category = 'medication').code.text",
+    "Does the patient have a history of surgeries?": "Procedure.where(status = 'completed').code.coding.display",
+    "What is the patient's current medication list?": "MedicationStatement.where(status = 'active').medicationCodeableConcept.text",
+    "Is there any known family medical history that is relevant?": "FamilyMemberHistory.condition.code.coding.display",
+    "Does the patient smoke or use alcohol?": "Observation.where(code.coding.display = 'Tobacco smoking status').valueCodeableConcept.text",
+    "Has the patient traveled recently?": "Observation.where(code.coding.display = 'Travel history').valueString"
+}
+
+# Define the chatbot prompt template
+prompt_template = """
+    You are a helpful Assistant who answers users' questions based on multiple contexts given to you.
+
+    The evidence is the context of the document extract with metadata. 
+    
+    Carefully focus on the metadata, especially 'filename' and 'page' whenever answering.
+    
+    Make sure to add filename and page number at the end of the sentence you are citing to.
+
+    Focus on the context of the document extract with metadata.
+    Add filename and page number if citing directly from a document.
+    Use general knowledge if document-based information is irrelevant.
+    
+    The document content is:
+    {doc_extract}
+"""
+
+# Function to convert FHIRPath results to natural language
+def convert_to_natural_language(fhir_result):
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Convert the following data into natural language."},
+                {"role": "user", "content": f"{fhir_result}"}
+            ],
+            max_tokens=150
+        )
+        return response.choices[0].message['content'].strip()
+    except Exception as e:
+        st.error(f"Error converting to natural language: {str(e)}")
+        return "Error in conversion"
+
+# Function to populate FAQs from document data
+def populate_emergency_faqs(data):
+    for question, fhirpath_expression in emergency_faqs.items():
+        try:
+            fhir_result = evaluate(data, fhirpath_expression, [])
+            if fhir_result:
+                natural_language_response = convert_to_natural_language(fhir_result)
+                emergency_faqs[question] = natural_language_response
+            else:
+                emergency_faqs[question] = "Not Found"
+        except Exception as e:
+            st.error(f"Error processing FAQ '{question}': {str(e)}")
+            emergency_faqs[question] = "Error in processing"
+
+# Upload files using Streamlit's file uploader
+uploaded_files = st.file_uploader("Upload your documents (PDF, TXT, JSON/FHIR, IPS)", type=["pdf", "txt", "json"], accept_multiple_files=True)
+
+# Process the uploaded files
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+        if uploaded_file.type == "application/json":
+            # Load and parse JSON file if it's a FHIR/IPS file
+            try:
+                data = json.loads(uploaded_file.getvalue().decode("utf-8"))
+                st.write("JSON data successfully loaded.")
+                
+                # Populate emergency FAQs immediately after loading the document
+                populate_emergency_faqs(data)
+
+            except json.JSONDecodeError:
+                st.error("Failed to parse JSON. Please check that the file is a valid JSON file.")
+
+# Display Emergency FAQs in the sidebar
+st.sidebar.header("Emergency FAQs (Patient Information)")
+for question, answer in emergency_faqs.items():
+    with st.sidebar.expander(question):
+        st.write(answer)
+
+# Display chat history
+for message in st.session_state.chat_history:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# Get the user's question
+user_prompt = st.chat_input("Ask anything")
+
+if user_prompt:
+    # Add the user's question to the chat history and display it
+    st.session_state.chat_history.append({"role": "user", "content": user_prompt})
+    st.chat_message("user").markdown(user_prompt)
+
+    # Use prompt template for contextual responses
+    doc_extract = "Document extract goes here"  # Replace with actual document extract logic if needed
+    formatted_prompt = prompt_template.format(doc_extract=doc_extract)
+
+    # Fallback to general GPT-4 response with formatted prompt template
+    messages = [{"role": "system", "content": formatted_prompt}]
+    messages.extend(st.session_state.chat_history)
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=messages
+    )
+    assistant_response = response.choices[0].message.content
+
+    # Add assistant's response to the chat history and display it
+    st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
+    with st.chat_message("assistant"):
+        st.markdown(assistant_response)
+
