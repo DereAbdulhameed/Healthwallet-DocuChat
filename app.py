@@ -20,7 +20,6 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-
 # Title of the Streamlit page
 st.title("DocuChat")
 
@@ -201,61 +200,3 @@ if user_prompt:
     st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
     with st.chat_message("assistant"):
         st.markdown(assistant_response)
-
-
-# Emergency FAQs relevant to first-contact doctor-patient interactions
-emergency_faqs = {
-    "What are the patient's vital signs?": "Not Found",
-    "Does the patient have any known chronic medical conditions?": "Not Found",
-    "Is the patient allergic to any medications?": "Not Found",
-    "Does the patient have a history of surgeries?": "Not Found",
-    "What is the patient's current medication list?": "Not Found",
-    "Is there any known family medical history that is relevant?": "Not Found",
-    "Does the patient smoke or use alcohol?": "Not Found",
-    "Has the patient traveled recently?": "Not Found",
-}
-
-# Function to update FAQs based on document content
-def update_emergency_faqs(data):
-    # Parsing data for FAQ responses
-    for key in emergency_faqs:
-        if key == "What are the patient's vital signs?":
-            # Example placeholder code to find vital signs
-            vital_signs = data.get("vitalSigns", "Not Found") if isinstance(data, dict) else "Not Found"
-            emergency_faqs[key] = vital_signs
-
-        elif key == "Does the patient have any known chronic medical conditions?":
-            chronic_conditions = data.get("chronicConditions", "Not Found") if isinstance(data, dict) else "Not Found"
-            emergency_faqs[key] = chronic_conditions
-
-        elif key == "Is the patient allergic to any medications?":
-            allergies = data.get("drugAllergies", "Not Found") if isinstance(data, dict) else "Not Found"
-            emergency_faqs[key] = allergies
-
-        elif key == "What is the patient's current medication list?":
-            medication_list = data.get("medications", "Not Found") if isinstance(data, dict) else "Not Found"
-            emergency_faqs[key] = medication_list
-
-        # Add more elif statements here for each specific FAQ if needed
-
-# Check uploaded file and update emergency FAQs
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-        if uploaded_file.type == "application/json":
-            try:
-                # Load JSON and update emergency FAQ responses based on the content
-                data = json.loads(uploaded_file.getvalue().decode("utf-8"))
-                update_emergency_faqs(data)
-            except json.JSONDecodeError:
-                st.error("Failed to parse JSON. Please check that the file is valid.")
-        elif uploaded_file.type == "application/pdf":
-            # You can add PDF parsing logic here and call `update_emergency_faqs` with parsed data
-            pass  # Placeholder for PDF processing code
-
-# Display updated Emergency FAQs in the sidebar
-st.sidebar.header("Emergency FAQs (Patient Information)")
-st.sidebar.write("These are key questions a doctor would ask upon first contact.")
-for question, answer in emergency_faqs.items():
-    with st.sidebar.expander(question):
-        st.write(answer if answer != "Not Found" else "Not Found")
-
