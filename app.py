@@ -188,7 +188,7 @@ if user_prompt:
         prompt = [{"role": "system", "content": "You are a helpful assistant"}]
         prompt.extend(st.session_state.chat_history)
 
-    # Get the response from the assistant
+    # Get the response from the assistant and add
     response = client.chat.completions.create(
         model="gpt-4",
         messages=prompt
