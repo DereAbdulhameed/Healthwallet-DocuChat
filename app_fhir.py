@@ -185,22 +185,6 @@ uploaded_files = st.file_uploader("Upload your documents (PDF, TXT, JSON/FHIR, I
 # Text area for raw text input
 raw_text = st.text_area("Or enter your raw text here:", height=150)
 
-# Process the uploaded files
-if uploaded_files:
-    for uploaded_file in uploaded_files:
-
-        if uploaded_file.type == "application/json":
-            # Load and parse JSON file if it's a FHIR/IPS file
-            try:
-                data = json.loads(uploaded_file.getvalue().decode("utf-8"))
-                st.write("JSON data successfully loaded.")
-                observations = get_observations(data)
-
-                # Populate emergency FAQs immediately after loading the document
-                populate_emergency_faqs(data)
-                
-            except json.JSONDecodeError:
-                st.error("Failed to parse JSON. Please check that the file is a valid JSON file.")
 
 # Function to parse FHIR/IPS JSON document and store key information in session state
 def parse_and_store_fhir_data(data):
@@ -331,6 +315,28 @@ prompt_template = """
     {doc_extract}
 """
 
+# Process the uploaded files
+if uploaded_files:
+    for uploaded_file in uploaded_files:
+
+        if uploaded_file.type == "application/json":
+            # Load and parse JSON file if it's a FHIR/IPS file
+            try:
+                data = json.loads(uploaded_file.getvalue().decode("utf-8"))
+                st.write("JSON data successfully loaded.")
+                parse_and_store_fhir_data(data)
+                #observations = get_observations(data)
+
+                # Display parsed data summary
+                st.success("FHIR data parsed and stored successfully.")
+
+                # Populate emergency FAQs immediately after loading the document
+                populate_emergency_faqs(data)
+                
+            except json.JSONDecodeError:
+                st.error("Failed to parse JSON. Please check that the file is a valid JSON file.")
+
+
 # Display chat history
 for message in st.session_state.chat_history:
     with st.chat_message(message["role"]):
@@ -371,15 +377,4 @@ if user_prompt:
         st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
         with st.chat_message("assistant"):
             st.markdown(assistant_response)
-        
-
-# Display updated Emergency FAQs in the sidebar
-st.sidebar.header("Emergency FAQs (Patient Information)")
-st.sidebar.write("These are key questions a doctor would ask upon first contact.")
-for question, answer in emergency_faqs.items():
-    with st.sidebar.expander(question):
-        st.write(answer if answer != "Not Found" else "Not Found")
-
-
-
 
