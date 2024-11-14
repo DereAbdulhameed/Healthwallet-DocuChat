@@ -368,6 +368,10 @@ if user_prompt:
             condition_data = st.session_state.parsed_data.get("Condition", [])
             response = convert_parsed_data_to_natural_language("Condition", condition_data)
 
+        elif "allergy" in user_prompt.lower() or "drug intolerance" in user_prompt.lower():
+            allergy_data = st.session_state.parsed_data.get("AllergyIntolerance", [])
+            response = convert_parsed_data_to_natural_language("AllergyIntolerance", allergy_data)
+
         if response:
             assistant_response = "\n".join(response)
         else:
