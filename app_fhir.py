@@ -144,15 +144,31 @@ def evaluate_fhirpath(data, fhirpath_expression):
 
 # Function to convert FHIRPath results to natural language using GPT
 def convert_to_natural_language(fhir_result):
+    # Few-shot examples to help the model understand the conversion
+    few_shot_examples = """
+    Examples of converting FHIRPath results to natural language:
+    1. FHIRPath Result: "Patient.birthDate: 1987-09-25"
+       Natural Language: "The patient's birth date is September 25th, 1987."
+
+    2. FHIRPath Result: "Observation.valueQuantity.value: 120, Observation.valueQuantity.unit: mmHg"
+       Natural Language: "The patient's blood pressure reading is 120 mmHg."
+
+    3. FHIRPath Result: "Patient.gender: male"
+       Natural Language: "The patient is male."
+
+    Please convert the following FHIRPath result into natural language.
+    """
+
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "Convert the following data into natural language."},
+            {"role": "system", "content": few_shot_examples},
             {"role": "user", "content": f"{fhir_result}"}
         ],
         max_tokens=150
     )
-    return response.choices[0].message.content  
+    return response.choices[0].message.content
+ 
 
 # Upload files using Streamlit's file uploader
 uploaded_files = st.file_uploader("Upload your documents (PDF, TXT, JSON/FHIR, IPS)", type=["pdf", "txt", "json"], accept_multiple_files=True)
