@@ -16,7 +16,6 @@ import requests
 client = OpenAI()
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
-FHIR_SERVER_URL = os.getenv("FHIR_SERVER_URL")
 
 # Initialize chat session in Streamlit if not already present
 if "chat_history" not in st.session_state:
@@ -90,16 +89,37 @@ def generate_fhirpath_query(question):
     return response.choices[0].message.content
 
 
-# Function to query the FHIR server using FHIRPath
-def query_fhir_server(fhir_query):
-    try:
-        headers = {'Content-Type': 'application/fhir+json'}
-        response = requests.get(f"{FHIR_SERVER_URL}/{fhir_query}", headers=headers)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error querying FHIR server: {str(e)}")
-        return None
+# Function to load and parse FHIR/IPS JSON document for observations
+def get_observations(data):
+    # Check if data contains an "entry" key, indicating it may be in the expected FHIR structure
+    entries = data.get("entry") if isinstance(data, dict) else None
+
+    # If the "entry" key exists and holds a list of resources, process it
+    if isinstance(entries, list):
+        observations = []
+        for entry in entries:
+            if isinstance(entry, dict) and "resource" in entry:
+                resource = entry["resource"]
+                
+                # Extract details from each observation
+                category = resource.get("category", [{}])[0].get("coding", [{}])[0].get("display", "Unknown Category")
+                code = resource.get("code", {}).get("coding", [{}])[0].get("display", "Unknown Code")
+                status = resource.get("status", "Unknown Status")
+                effective_date = resource.get("effectiveDateTime", "Unknown Date")
+                result_text = resource.get("valueCodeableConcept", {}).get("text", "No Result Text")
+                
+                # Append extracted details to the list
+                observations.append({
+                    "Category": category,
+                    "Code": code,
+                    "Status": status,
+                    "Effective Date": effective_date,
+                    "Result": result_text
+                })
+        return observations
+    else:
+        st.error("Uploaded JSON file is not in the expected FHIR format with an 'entry' key.")
+
 
 # Function to evaluate FHIRPath queries using fhirpathpy
 def evaluate_fhirpath(data, fhirpath_expression):
@@ -176,11 +196,11 @@ if user_prompt:
 
     # Generate FHIRPath query for user's question
     fhir_query = generate_fhirpath_query(user_prompt)
-    fhir_data = query_fhir_server(fhir_query)
+    
 
     # If FHIR data is found, convert it to natural language
-    if fhir_data:
-        natural_language_response = convert_to_natural_language(fhir_data)
+    if fhir_query:
+        natural_language_response = convert_to_natural_language(fhir_query)
         assistant_response = natural_language_response
     else:
         # Fallback to general GPT-4 response
