@@ -21,6 +21,10 @@ openai.api_key = os.getenv("OPENAI_API_KEY")
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# Initialize parsed data storage
+if "parsed_data" not in st.session_state:
+    st.session_state.parsed_data = {}
+
 # Title of the Streamlit page
 st.title("DocuChat")
 
@@ -78,15 +82,17 @@ def populate_emergency_faqs(data):
         try:
             fhir_result = evaluate(data, fhirpath_expression, [])
             if fhir_result:
-                natural_language_response = convert_to_natural_language(fhir_result)
+                # Extract the actual value, assuming fhir_result is a list of extracted items
+                extracted_value = fhir_result[0] if isinstance(fhir_result, list) and len(fhir_result) > 0 else fhir_result
+                natural_language_response = convert_to_natural_language(extracted_value)
                 emergency_faqs[question] = natural_language_response
             else:
                 emergency_faqs[question] = "Not Found"
         except Exception as e:
             st.error(f"Error processing FAQ '{question}': {str(e)}")
             emergency_faqs[question] = "Error in processing"
-            
 
+            
 # Function to generate FHIRPath queries using GPT with few-shot prompting
 def generate_fhirpath_query(question):
     response = client.chat.completions.create(
@@ -142,7 +148,7 @@ def evaluate_fhirpath(data, fhirpath_expression):
         st.error(f"Error in evaluating FHIRPath expression: {str(e)}")
         return None
 
-# Function to convert FHIRPath results to natural language using GPT
+# Function to convert FHIRPath results to natural language
 def convert_to_natural_language(fhir_result):
     # Few-shot examples to help the model understand the conversion
     few_shot_examples = """
@@ -150,10 +156,13 @@ def convert_to_natural_language(fhir_result):
     1. FHIRPath Result: "Patient.birthDate: 1987-09-25"
        Natural Language: "The patient's birth date is September 25th, 1987."
 
-    2. FHIRPath Result: "Observation.valueQuantity.value: 120, Observation.valueQuantity.unit: mmHg"
+    2. FHIRPath Result: "AllergyIntolerance.substance: Penicillin"
+       Natural Language: "The patient is allergic to Penicillin."
+
+    3. FHIRPath Result: "Observation.valueQuantity.value: 120, Observation.valueQuantity.unit: mmHg"
        Natural Language: "The patient's blood pressure reading is 120 mmHg."
 
-    3. FHIRPath Result: "Patient.gender: male"
+    4. FHIRPath Result: "Patient.gender: male"
        Natural Language: "The patient is male."
 
     Please convert the following FHIRPath result into natural language.
@@ -179,17 +188,130 @@ raw_text = st.text_area("Or enter your raw text here:", height=150)
 # Process the uploaded files
 if uploaded_files:
     for uploaded_file in uploaded_files:
+
         if uploaded_file.type == "application/json":
             # Load and parse JSON file if it's a FHIR/IPS file
             try:
                 data = json.loads(uploaded_file.getvalue().decode("utf-8"))
                 st.write("JSON data successfully loaded.")
+                observations = get_observations(data)
 
                 # Populate emergency FAQs immediately after loading the document
                 populate_emergency_faqs(data)
-
+                
             except json.JSONDecodeError:
                 st.error("Failed to parse JSON. Please check that the file is a valid JSON file.")
+
+# Function to parse FHIR/IPS JSON document and store key information in session state
+def parse_and_store_fhir_data(data):
+    if "entry" in data and isinstance(data["entry"], list):
+        for entry in data["entry"]:
+            if isinstance(entry, dict) and "resource" in entry:
+                resource = entry["resource"]
+                resource_type = resource.get("resourceType")
+
+                if resource_type:
+                    # Store resources based on type and extract important details
+                    if resource_type not in st.session_state.parsed_data:
+                        st.session_state.parsed_data[resource_type] = []
+
+                    parsed_resource = extract_key_details(resource)
+                    st.session_state.parsed_data[resource_type].append(parsed_resource)
+    else:
+        st.error("Uploaded JSON file is not in the expected FHIR format with an 'entry' key.")
+
+# Function to extract key details from resources
+def extract_key_details(resource):
+    resource_type = resource.get("resourceType")
+
+    if resource_type == "MedicationRequest":
+        return {
+            "resourceType": resource_type,
+            "status": resource.get("status"),
+            "medication": resource.get("medicationCodeableConcept", {}).get("text"),
+            "requester": resource.get("requester", {}).get("display"),
+            "authoredOn": resource.get("authoredOn"),
+        }
+
+    elif resource_type == "Condition":
+        return {
+            "resourceType": resource_type,
+            "clinicalStatus": resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code"),
+            "condition": resource.get("code", {}).get("text"),
+            "verificationStatus": resource.get("verificationStatus", {}).get("coding", [{}])[0].get("code"),
+            "onsetDateTime": resource.get("onsetDateTime"),
+        }
+
+    elif resource_type == "AllergyIntolerance":
+        return {
+            "resourceType": resource_type,
+            "status": resource.get("clinicalStatus", {}).get("coding", [{}])[0].get("code"),
+            "allergy": resource.get("code", {}).get("text"),
+            "category": resource.get("category", [])[0] if resource.get("category") else "Unknown",
+            "criticality": resource.get("criticality"),
+        }
+
+    elif resource_type == "Observation":
+        return {
+            "resourceType": resource_type,
+            "category": resource.get("category", [{}])[0].get("coding", [{}])[0].get("display", "Unknown Category"),
+            "code": resource.get("code", {}).get("coding", [{}])[0].get("display", "Unknown Code"),
+            "status": resource.get("status", "Unknown Status"),
+            "effectiveDateTime": resource.get("effectiveDateTime", "Unknown Date"),
+            "value": resource.get("valueQuantity", {}).get("value", resource.get("valueCodeableConcept", {}).get("text", "No Value")),
+        }
+
+    elif resource_type == "Procedure":
+        return {
+            "resourceType": resource_type,
+            "status": resource.get("status"),
+            "procedure": resource.get("code", {}).get("text"),
+            "performedDateTime": resource.get("performedDateTime"),
+        }
+
+    elif resource_type == "FamilyMemberHistory":
+        return {
+            "resourceType": resource_type,
+            "relationship": resource.get("relationship", {}).get("text"),
+            "condition": [
+                {
+                    "condition": condition.get("code", {}).get("text"),
+                    "outcome": condition.get("outcome", {}).get("text"),
+                }
+                for condition in resource.get("condition", [])
+            ],
+        }
+
+    # Generic fallback for any other resource types
+    else:
+        return extract_dynamic_details(resource)
+
+
+# Function to dynamically extract all available key-value pairs
+def extract_dynamic_details(resource):
+    extracted_details = {"resourceType": resource.get("resourceType", "Unknown Resource Type")}
+    for key, value in resource.items():
+        if isinstance(value, dict):
+            extracted_details[key] = extract_dynamic_details(value)  # Recursively extract details from nested dicts
+        elif isinstance(value, list):
+            extracted_details[key] = [
+                extract_dynamic_details(item) if isinstance(item, dict) else item for item in value
+            ]
+        else:
+            extracted_details[key] = value
+    return extracted_details
+
+## Function to convert parsed information to natural language
+def convert_parsed_data_to_natural_language(resource_type, resources):
+    if resource_type == "MedicationRequest":
+        return [f"The patient was prescribed {resource['medication']} on {resource['authoredOn']} by {resource['requester']}. Status: {resource['status']}."
+                for resource in resources]
+
+    elif resource_type == "Condition":
+        return [f"The patient has {resource['condition']} with status '{resource['clinicalStatus']}'. It was confirmed as '{resource['verificationStatus']}' and recorded on {resource['onsetDateTime']}."
+                for resource in resources]
+
+    return []
 
 # Define the chatbot template
 prompt_template = """
@@ -218,33 +340,37 @@ for message in st.session_state.chat_history:
 user_prompt = st.chat_input("Ask anything")
 
 if user_prompt:
-    # Add the user's question to the chat history and display it
-    st.session_state.chat_history.append({"role": "user", "content": user_prompt})
-    st.chat_message("user").markdown(user_prompt)
+    # Validate the user's question
+    def validate_question(question):
+        if len(question) > 200:
+            st.error("Your question is too long. Please keep it concise.")
+            return False
+        return True
 
-    # Generate FHIRPath query for user's question
-    fhir_query = generate_fhirpath_query(user_prompt)
-    
+    if validate_question(user_prompt):
+        # Add the user's question to the chat history and display it
+        st.session_state.chat_history.append({"role": "user", "content": user_prompt})
+        st.chat_message("user").markdown(user_prompt)
 
-    # If FHIR data is found, convert it to natural language
-    if fhir_query:
-        natural_language_response = convert_to_natural_language(fhir_query)
-        assistant_response = natural_language_response
-    else:
-        # Fallback to general GPT-4 response
-        messages = [{"role": "system", "content": "You are a helpful assistant"}]
-        messages.extend(st.session_state.chat_history)
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=messages
-        )
-        assistant_response = response.choices[0].message.content
+        # Check if the question can be answered from parsed FHIR data
+        response = ""
+        if "medication" in user_prompt.lower():
+            medication_data = st.session_state.parsed_data.get("MedicationRequest", [])
+            response = convert_parsed_data_to_natural_language("MedicationRequest", medication_data)
 
-    # Add assistant's response to the chat history and display it
-    st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
-    with st.chat_message("assistant"):
-        st.markdown(assistant_response)
+        elif "condition" in user_prompt.lower() or "health status" in user_prompt.lower():
+            condition_data = st.session_state.parsed_data.get("Condition", [])
+            response = convert_parsed_data_to_natural_language("Condition", condition_data)
 
+        if response:
+            assistant_response = "\n".join(response)
+        else:
+            assistant_response = "I'm unable to find the specific information you requested in the current data."
+
+        # Add assistant's response to the chat history and display it
+        st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
+        with st.chat_message("assistant"):
+            st.markdown(assistant_response)
         
 
 # Display updated Emergency FAQs in the sidebar
