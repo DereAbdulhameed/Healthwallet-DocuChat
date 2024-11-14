@@ -60,6 +60,18 @@ Examples of natural language questions and their corresponding FHIRPath queries:
 Please convert the following question into a FHIRPath query.
 """
 
+# Emergency FAQs to answer upon document upload
+emergency_faqs = {
+    "What are the patient's vital signs?": "Observation.where(category.coding.code = 'vital-signs').valueQuantity.value",
+    "Does the patient have any known chronic medical conditions?": "Condition.where(clinicalStatus = 'active').code.coding.display",
+    "Is the patient allergic to any medications?": "AllergyIntolerance.where(category = 'medication').code.text",
+    "Does the patient have a history of surgeries?": "Procedure.where(status = 'completed').code.coding.display",
+    "What is the patient's current medication list?": "MedicationStatement.where(status = 'active').medicationCodeableConcept.text",
+    "Is there any known family medical history that is relevant?": "FamilyMemberHistory.condition.code.coding.display",
+    "Does the patient smoke or use alcohol?": "Observation.where(code.coding.display = 'Tobacco smoking status').valueCodeableConcept.text",
+    "Has the patient traveled recently?": "Observation.where(code.coding.display = 'Travel history').valueString"
+}
+
 # Function to populate FAQs from document data
 def populate_emergency_faqs(data):
     for question, fhirpath_expression in emergency_faqs.items():
@@ -140,7 +152,7 @@ def convert_to_natural_language(fhir_result):
         ],
         max_tokens=150
     )
-    return response.choices[0].message['content'].strip()
+    return response.choices[0].message.content  
 
 # Upload files using Streamlit's file uploader
 uploaded_files = st.file_uploader("Upload your documents (PDF, TXT, JSON/FHIR, IPS)", type=["pdf", "txt", "json"], accept_multiple_files=True)
@@ -218,20 +230,6 @@ if user_prompt:
         st.markdown(assistant_response)
 
         
-# Emergency FAQs to answer upon document upload
-emergency_faqs = {
-    "What are the patient's vital signs?": "Observation.where(category.coding.code = 'vital-signs').valueQuantity.value",
-    "Does the patient have any known chronic medical conditions?": "Condition.where(clinicalStatus = 'active').code.coding.display",
-    "Is the patient allergic to any medications?": "AllergyIntolerance.where(category = 'medication').code.text",
-    "Does the patient have a history of surgeries?": "Procedure.where(status = 'completed').code.coding.display",
-    "What is the patient's current medication list?": "MedicationStatement.where(status = 'active').medicationCodeableConcept.text",
-    "Is there any known family medical history that is relevant?": "FamilyMemberHistory.condition.code.coding.display",
-    "Does the patient smoke or use alcohol?": "Observation.where(code.coding.display = 'Tobacco smoking status').valueCodeableConcept.text",
-    "Has the patient traveled recently?": "Observation.where(code.coding.display = 'Travel history').valueString"
-}
-
-
-
 
 # Display updated Emergency FAQs in the sidebar
 st.sidebar.header("Emergency FAQs (Patient Information)")
@@ -239,3 +237,7 @@ st.sidebar.write("These are key questions a doctor would ask upon first contact.
 for question, answer in emergency_faqs.items():
     with st.sidebar.expander(question):
         st.write(answer if answer != "Not Found" else "Not Found")
+
+
+
+
