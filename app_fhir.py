@@ -286,16 +286,55 @@ def extract_dynamic_details(resource):
     return extracted_details
 
 ## Function to convert parsed information to natural language
+#def convert_parsed_data_to_natural_language(resource_type, resources):
+#    if resource_type == "MedicationRequest":
+#        return [f"The patient was prescribed {resource['medication']} on {resource['authoredOn']} by {resource['requester']}. Status: {resource['status']}."
+#                for resource in resources]
+
+#    elif resource_type == "Condition":
+#        return [f"The patient has {resource['condition']} with status '{resource['clinicalStatus']}'. It was recorded on {resource['onsetDateTime']}."
+#                for resource in resources]
+
+#    return []
+
 def convert_parsed_data_to_natural_language(resource_type, resources):
-    if resource_type == "MedicationRequest":
-        return [f"The patient was prescribed {resource['medication']} on {resource['authoredOn']} by {resource['requester']}. Status: {resource['status']}."
-                for resource in resources]
+    important_fields = {
+        "MedicationRequest": ["medication", "status", "requester", "authoredOn"],
+        "Condition": ["condition", "clinicalStatus", "onsetDateTime"],
+        "AllergyIntolerance": ["substance", "status", "criticality"],
+        "Patient": ["name", "birthDate", "gender", "address", "telecom"]
+    }
 
-    elif resource_type == "Condition":
-        return [f"The patient has {resource['condition']} with status '{resource['clinicalStatus']}'. It was confirmed as '{resource['verificationStatus']}' and recorded on {resource['onsetDateTime']}."
-                for resource in resources]
+    responses = []
+    for resource in resources:
+        response_parts = []
 
-    return []
+        # Check if the resource type has any important fields defined
+        if resource_type in important_fields:
+            fields_to_include = important_fields[resource_type]
+        else:
+            # If no specific fields are defined, include everything
+            fields_to_include = resource.keys()
+
+        for field in fields_to_include:
+            if field in resource:
+                value = resource[field]
+
+                # Convert value to a readable form if it's nested
+                if isinstance(value, dict):
+                    value = ", ".join([f"{k}: {v}" for k, v in value.items()])
+                elif isinstance(value, list):
+                    value = ", ".join([str(v) for v in value])
+
+                response_parts.append(f"{field.replace('_', ' ').capitalize()}: {value}")
+
+        # Combine parts into a full response for this resource
+        if response_parts:
+            response = f"The patient's {resource_type} information includes: " + "; ".join(response_parts) + "."
+            responses.append(response)
+
+    return responses
+
 
 # Define the chatbot template
 prompt_template = """
@@ -360,7 +399,7 @@ if user_prompt:
 
         # Check if the question can be answered from parsed FHIR data
         response = ""
-        if "medication" in user_prompt.lower():
+        if "medication" in user_prompt.lower() or "drug" in user_prompt.lower():
             medication_data = st.session_state.parsed_data.get("MedicationRequest", [])
             response = convert_parsed_data_to_natural_language("MedicationRequest", medication_data)
 
