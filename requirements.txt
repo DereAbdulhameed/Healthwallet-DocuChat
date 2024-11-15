@@ -9,4 +9,5 @@ python-dotenv
 raga-llm-hub
 fhirpath
 pydantic
+pytest
 
