@@ -425,9 +425,11 @@ if user_prompt:
                 response = convert_parsed_data_to_natural_language("AllergyIntolerance", allergy_data)
                 context_data = "\n\n".join(response)
 
-        # Determine the assistant's response based on the user's query
+        # Initialize the assistant response
+        assistant_response = ""
+
+        # If the parsed data contains relevant information
         if response:
-            # If the data from parsed FHIR can answer the question directly
             assistant_response = "\n".join(response)
         else:
             # Use GPT-4 for dynamic questions and reasoning if no direct response is available
@@ -442,14 +444,19 @@ if user_prompt:
             Note: If the user asks about interactions or safety for pregnancy, please include that analysis in your response.
             """
 
+            # Include the chat history to provide context
+            messages = [{"role": "system", "content": "You are a helpful medical assistant."}]
+            for message in st.session_state.chat_history:
+                messages.append(message)
+
+            # Add the user's current question and the generated prompt
+            messages.append({"role": "user", "content": gpt_prompt})
+
             # Call GPT-4 to generate a dynamic response
-            gpt_response = openai.chat.completions.create(
+            gpt_response = client.chat.completions.create(
                 model="gpt-4",
-                messages=[
-                    {"role": "system", "content": "You are a helpful medical assistant."},
-                    {"role": "user", "content": gpt_prompt}
-                ],
-                max_tokens=150,
+                messages=messages,
+                max_tokens=300,
                 temperature=0.5
             )
 
