@@ -305,17 +305,18 @@ def convert_parsed_data_to_natural_language(resource_type, resources):
         "Patient": ["name", "birthDate", "gender", "address", "telecom"]
     }
 
-    responses = []
+    # Check if the resource type has any important fields defined
+    if resource_type in important_fields:
+        fields_to_include = important_fields[resource_type]
+    else:
+        # If no specific fields are defined, include everything
+        fields_to_include = resources[0].keys() if resources else []
+
+    response_parts = []
+
+    # Iterate over resources and collect the response details
     for resource in resources:
-        response_parts = []
-
-        # Check if the resource type has any important fields defined
-        if resource_type in important_fields:
-            fields_to_include = important_fields[resource_type]
-        else:
-            # If no specific fields are defined, include everything
-            fields_to_include = resource.keys()
-
+        parts = []
         for field in fields_to_include:
             if field in resource:
                 value = resource[field]
@@ -326,14 +327,18 @@ def convert_parsed_data_to_natural_language(resource_type, resources):
                 elif isinstance(value, list):
                     value = ", ".join([str(v) for v in value])
 
-                response_parts.append(f"{field.replace('_', ' ').capitalize()}: {value}")
+                parts.append(f"{field.replace('_', ' ').capitalize()}: {value}")
 
-        # Combine parts into a full response for this resource
-        if response_parts:
-            response = f"The patient's {resource_type} information includes: " + "; ".join(response_parts) + "."
-            responses.append(response)
+        if parts:
+            response_parts.append("\n".join(parts))  # Join all parts with a newline for each field
 
-    return responses
+    # Combine all parts into a single response for the resource type
+    if response_parts:
+        response = f"The patient's {resource_type} information includes:\n\n" + "\n\n".join(response_parts)
+        return [response]
+
+    return []
+
 
 
 # Define the chatbot template
@@ -397,27 +402,69 @@ if user_prompt:
         st.session_state.chat_history.append({"role": "user", "content": user_prompt})
         st.chat_message("user").markdown(user_prompt)
 
-        # Check if the question can be answered from parsed FHIR data
+        # Initialize variables to hold the response and context data
         response = ""
+        context_data = ""
+
+        # Extract relevant data based on user's query and generate response
         if "medication" in user_prompt.lower() or "drug" in user_prompt.lower():
             medication_data = st.session_state.parsed_data.get("MedicationRequest", [])
-            response = convert_parsed_data_to_natural_language("MedicationRequest", medication_data)
+            if medication_data:
+                response = convert_parsed_data_to_natural_language("MedicationRequest", medication_data)
+                context_data = "\n\n".join(response)
 
         elif "condition" in user_prompt.lower() or "health status" in user_prompt.lower():
             condition_data = st.session_state.parsed_data.get("Condition", [])
-            response = convert_parsed_data_to_natural_language("Condition", condition_data)
+            if condition_data:
+                response = convert_parsed_data_to_natural_language("Condition", condition_data)
+                context_data = "\n\n".join(response)
 
         elif "allergy" in user_prompt.lower() or "drug intolerance" in user_prompt.lower():
             allergy_data = st.session_state.parsed_data.get("AllergyIntolerance", [])
-            response = convert_parsed_data_to_natural_language("AllergyIntolerance", allergy_data)
+            if allergy_data:
+                response = convert_parsed_data_to_natural_language("AllergyIntolerance", allergy_data)
+                context_data = "\n\n".join(response)
 
+        # Determine the assistant's response based on the user's query
         if response:
+            # If the data from parsed FHIR can answer the question directly
             assistant_response = "\n".join(response)
         else:
-            assistant_response = "I'm unable to find the specific information you requested in the current data."
+            # Use GPT-4 for dynamic questions and reasoning if no direct response is available
+            gpt_prompt = f"""
+            You are a medical assistant. The user has asked the following question: "{user_prompt}"
+
+            Based on the following medical data, please answer the user's question as accurately as possible.
+
+            Medical Data:
+            {context_data if context_data else "No specific medical data available."}
+
+            Note: If the user asks about interactions or safety for pregnancy, please include that analysis in your response.
+            """
+
+            # Call GPT-4 to generate a dynamic response
+            gpt_response = openai.chat.completions.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a helpful medical assistant."},
+                    {"role": "user", "content": gpt_prompt}
+                ],
+                max_tokens=150,
+                temperature=0.5
+            )
+
+            assistant_response = gpt_response.choices[0].message.content
+
+        # Default response if no relevant data is found and GPT cannot provide an answer
+        if not assistant_response:
+            assistant_response = "I'm unable to find the specific information you requested in the current data. Please provide more details or clarify your question."
 
         # Add assistant's response to the chat history and display it
         st.session_state.chat_history.append({"role": "assistant", "content": assistant_response})
         with st.chat_message("assistant"):
             st.markdown(assistant_response)
 
+        # Limit chat history to the most recent 20 messages
+        MAX_CHAT_HISTORY = 20
+        if len(st.session_state.chat_history) > MAX_CHAT_HISTORY:
+            st.session_state.chat_history = st.session_state.chat_history[-MAX_CHAT_HISTORY:]
