@@ -32,33 +32,29 @@ def ask_chatgpt(question):
         )
         return response.choices[0].message.content
     except Exception as e:
-        return f"Error communicating with ChatGPT: {str(e)}"
+        print(f"Error loading JSON file: {str(e)}")
+        exit(1)
 
-# Streamlit App
-st.title("FHIRPath Evaluation and ChatGPT Integration")
-st.write("Upload a FHIR JSON file, run FHIRPath queries, and interact with ChatGPT.")
+    # List of FHIRPath queries
+    queries = [
+        ("How old is the patient?", "entry.resource.where(resourceType = 'Patient').birthDate"),
+        ("What is the patient's drug allergy?", "entry.resource.where(resourceType = 'AllergyIntolerance' and category = 'medication').code.text"),
+        ("What are the patient's current medications?", "entry.resource.where(resourceType = 'MedicationStatement' and status = 'active').medicationCodeableConcept.text"),
+        ("What is the patient's gender?", "entry.resource.where(resourceType = 'Patient').gender"),
+        ("Does the patient have a history of smoking?", "entry.resource.where(resourceType = 'Observation' and code.coding.display = 'Tobacco smoking status').valueCodeableConcept.text"),
+        ("What is the patient's primary diagnosis?", "entry.resource.where(resourceType = 'Condition' and clinicalStatus.coding.code = 'active').code.coding.display"),
+        ("What is the patient's contact phone number?", "entry.resource.where(resourceType = 'Patient').telecom.where(system = 'phone').value"),
+        ("What are the patient's laboratory test results?", "entry.resource.where(resourceType = 'Observation' and category.coding.code = 'laboratory').valueQuantity.value"),
+        ("What is the patient's blood type?", "entry.resource.where(resourceType = 'Observation' and code.coding.display = 'Blood group').valueCodeableConcept.text"),
+        ("What is the patient's weight?", "entry.resource.where(resourceType = 'Observation' and code.coding.display = 'Body Weight').valueQuantity.value"),
+    ]
 
-# Sidebar for predefined queries
-with st.sidebar:
-    st.header("Common Useful Emergency Questions")
-    predefined_queries = {
-        "How old is the patient?": "entry.resource.where(resourceType = 'Patient').birthDate",
-        "What is the patient's drug allergy?": "entry.resource.where(resourceType = 'AllergyIntolerance' and category = 'medication').code.text",
-        "What are the patient's current medications?": "entry.resource.where(resourceType = 'MedicationStatement' and status = 'active').medicationCodeableConcept.text",
-        "What is the patient's gender?": "entry.resource.where(resourceType = 'Patient').gender",
-        "What is the patient's contact phone number?": "entry.resource.where(resourceType = 'Patient').telecom.where(system = 'phone').value",
-    }
-    query_selection = st.selectbox("Emergency Questions", list(predefined_queries.keys()))
-    #custom_query = st.text_input("Or enter a custom FHIRPath query")
-    custom_query = []
-    if st.button("Get answer to your queries", key="query_button"):
-        if "patient_data" in st.session_state:
-            query_to_run = predefined_queries.get(query_selection) if not custom_query else custom_query
-            result = evaluate_fhirpath(st.session_state["patient_data"], query_to_run)
-            if result:
-                st.success(f"Result: {result}")
-            else:
-                st.error("No result found.")
+    # Iterate through queries and evaluate them
+    for question, fhirpath_expression in queries:
+        print(f"Question: {question}")
+        result = evaluate_fhirpath(patient_data, fhirpath_expression)
+        if result:
+            print(f"Result: {result}")
         else:
             st.error("Please upload a FHIR JSON file first.")
 
